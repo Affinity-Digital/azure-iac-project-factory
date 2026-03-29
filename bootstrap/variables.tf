@@ -80,9 +80,9 @@ variable "resource_name_templates" {
     container_instance_prefix_name        = "aci-$${workload}-$${environment}-$${location}"
     container_registry_name               = "acr$${workload}$${environment}$${location_short}$${sequence}$${uniqueness}"
     repository_main_name                  = "$${workload}-$${environment}-main"
-    repository_template_name              = "$${workload}-$${environment}-template"
+    repository_template_name              = "$${workload}-$${environment}-gha-template"
     runner_group_name                     = "runner-group-$${workload}-$${environment}"
-    team_name                             = "team-$${workload}-$${environment}-approvers"
+    team_name                             = "$${workload}-$${environment}-approvers"
   }
 }
 

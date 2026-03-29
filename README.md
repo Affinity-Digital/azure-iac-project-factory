@@ -98,12 +98,11 @@ The bootstrap implements a number of best practices for Terraform in Azure DevOp
     1. `Administration`: `Read and write`
     1. `Contents`: `Read and write`
     1. `Environments`: `Read and write`
-    1. `Secrets`: `Read and write`
     1. `Variables`: `Read and write`
     1. `Workflows`: `Read and write`
 1. Add the following `Organization` permissions:
     1. `Members`: `Read and write`
-    1. `Self-hosted runners`: `Read and write`  Only required if you plan to use Runner Groups at the organization level.
+    1. `Self-hosted runners`: `Read and write`  Only required if you plan to use `use_runner_group = true`. Note: runner groups are only supported on GitHub Enterprise plan organisations; the setting has no effect on free or team plan organisations.
 1. Click `Generate token`.
 1. > IMPORTANT: Copy the token and save it somewhere.
 
@@ -133,7 +132,9 @@ The bootstrap implements a number of best practices for Terraform in Azure DevOp
     }
     ```
 
-    If you wish to use Microsoft-hosted agents and public networking add this setting to `terraform.tfvars`:
+    If you wish to use Microsoft-hosted (GitHub-hosted) runners instead of self-hosted agents add this setting to `terraform.tfvars`:
+
+    >NOTE: Setting this to `false` also disables the private networking for the Terraform state storage account, meaning the storage account will be publicly accessible over the internet. This is fine for a demo but is not recommended for production use.
 
     ```terraform
     use_self_hosted_agents = false
@@ -145,6 +146,14 @@ The bootstrap implements a number of best practices for Terraform in Azure DevOp
 
     ```terraform
     self_hosted_agent_type = "azure_container_app"
+    ```
+
+    If you wish to use an organisation-level runner group (GitHub Enterprise plan only) add this setting to `terraform.tfvars`:
+
+    >NOTE: This has no effect on free or team plan organisations. Without it, runners are registered directly to the main repository.
+
+    ```terraform
+    use_runner_group = true
     ```
 
 ### Apply the Terraform
@@ -205,8 +214,8 @@ The bootstrap implements a number of best practices for Terraform in Azure DevOp
 #### GitHub Template Repository
 
 1. Navigate to your organization and select `Repositories`.
-1. You should see a newly created repository in there (e.g. `demg-mgt-templates`). Click on it.
-1. You should see some files under source control.
+1. You should see a newly created repository in there (e.g. `demg-mgt-gha-template`). Click on it.
+1. You should see reusable GitHub Actions workflow files under source control.
 
 #### GitHub environments
 
