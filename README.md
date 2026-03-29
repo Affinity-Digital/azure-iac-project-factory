@@ -78,7 +78,7 @@ The bootstrap implements a number of best practices for Terraform in Azure DevOp
 - Approvals: The production environment requires approval to apply to it. This is enforced on the prod-apply environment as GitHub only supports approvals on environments.
 - Concurrent locks: The actions are locked using a concurrency setting to prevent parallel deployments from running at the same time. The pipeline includes the `concurrency: <storage container>` setting to ensure that the pipeline will wait for the lock to be released before running, so it queues rather just failing.
 - Workload Identity Federation (OIDC): The User Assigned Managed Identities are configured to use Workload Identity Federation (OIDC) authenticate to Azure. This means that you don't need to store any secrets in GitHub.
-- Pipeline Stages: By default the pipeline is configured with dependencies between the environments. This means that the pipeline will run the dev stage, then the test stage and finally the prod stage. We also provide a parameter to target a specific environment to demonstrate a GitOps type approach too.
+- Pipeline Stages: By default the pipeline is configured with dependencies between the environments. This means that the pipeline will run the dev stage, then the UAT stage and finally the prod stage. We also provide a parameter to target a specific environment to demonstrate a GitOps type approach too.
 - Separate Plan and Apply Identities: The bootstrap creates separate plan and apply identities and service connections per environment. This is to implement the principal of least privilege. The plan identity has read only access to the resource group and the apply identity has contributor access to the resource group.
 
 ### Generate a PAT (Personal Access Token) in GitHub
@@ -114,23 +114,43 @@ The bootstrap implements a number of best practices for Terraform in Azure DevOp
 1. In the config file add the following:
 
    ```terraform
-    location          = "<azure_location>"
-    organization_name = "<your_github_organisation_name>"
-    # You can omit this is you don't want to demo approvals on the production environment. Remove this whole approvers block to omit.
+    location                  = "<azure_location>"
+    organization_name         = "<your_github_organisation_name>"
+    # Set to "none" if your Azure identity cannot register subscription-scoped resource providers.
+    azurerm_resource_provider_registrations = "none"
+    resource_name_workload    = "<workload>"
+    resource_name_environment = "<environment>"
+      # You can omit this if you don't want to demo approvals on the production environment. Remove this whole approvers block to omit.
     approvers = {
-      user1 = "<your_azure_devops_username>"
+        user1 = "<your_github_username>"
     }
     ```
 
     e.g.
 
     ```terraform
-    location          = "uksouth"
-    organization_name = "my-organization"
+    location                  = "uksouth"
+    organization_name         = "my-organization"
+    azurerm_resource_provider_registrations = "none"
+    resource_name_workload    = "demo"
+    resource_name_environment = "iac"
     approvers = {
-      user1 = "demouser@example.com"
+      user1 = "demouser"
     }
     ```
+
+    The `resource_name_workload` and `resource_name_environment` values are now used as the base for most generated names. For example, with `demo` and `iac`:
+
+    - The main GitHub repository is created as `demo-iac-main`.
+    - The reusable workflow repository is created as `demo-iac-gha-template`.
+    - Shared Azure resource groups are created with names such as `rg-demo-state-iac-uksouth-001` and `rg-demo-identity-iac-uksouth-001`.
+    - Per-environment resource groups are created with names such as `rg-demo-env-dev-uksouth-001`, `rg-demo-env-uat-uksouth-001`, and `rg-demo-env-prod-uksouth-001`.
+
+    Both values must use lowercase letters and numbers only. They are intended to be short naming segments and are validated in Terraform.
+
+    `approvers` must contain GitHub usernames for members that are visible through the organization API. Email addresses are not used for matching.
+
+  `azurerm_resource_provider_registrations` is optional. Leave it unset to use the AzureRM provider default, or set it to one of `core`, `extended`, `all`, `legacy`, or `none`. For restricted subscriptions where your identity cannot register resource providers, `none` is the recommended setting.
 
     If you wish to use Microsoft-hosted (GitHub-hosted) runners instead of self-hosted agents add this setting to `terraform.tfvars`:
 
@@ -160,7 +180,7 @@ The bootstrap implements a number of best practices for Terraform in Azure DevOp
 
 1. Open the Visual Studio Code Terminal and navigate the `bootstrap` folder.
 1. Run `az login -T "<tenant_id>"` and follow the prompts to login to Azure with your account.
-1. Run `az account show`. If you are not connected to you test subscription, change it by running `az account set --subscription "<subscription-id>"`
+1. Run `az account show`. If you are not connected to your target subscription, change it by running `az account set --subscription "<subscription-id>"`
 1. Run `$env:TF_VAR_personal_access_token = "<your_pat>"` to set the PAT you generated earlier.
 1. Run `terraform init`.
 1. Run `terraform plan -out tfplan`.
@@ -176,7 +196,7 @@ The bootstrap implements a number of best practices for Terraform in Azure DevOp
 
 1. Login to the [Azure Portal](https://portal.azure.com) with your Global Administrator account.
 1. Navigate to your Subscription and select `Resource groups`.
-1. Click the resource group with `identity` (e.g. `rg-demg-identity-mgt-uksouth-001`).
+1. Click the resource group with `identity` (for example `rg-demo-identity-iac-uksouth-001`).
 1. You should see 6 newly created User Assigned Managed Identities, 2 per environment.
 1. Look for a `Managed Identity` resource post-fixed with `dev-plan` and click it.
 
@@ -189,7 +209,7 @@ The bootstrap implements a number of best practices for Terraform in Azure DevOp
 
 1. Navigate to your Subscription and select `Resource groups`.
 1. You should see four newly created resource groups.
-1. Click the resource group with `env-dev` (e.g. `rg-demg-env-dev-uksouth-001`).
+1. Click the resource group with `env-dev` (for example `rg-demo-env-dev-uksouth-001`).
 1. Select `Access control (IAM)` and select `Role assignments`.
 1. Under the `Reader` role, you should see that your `dev-plan` Managed Identity has been granted access directly to the resource group.
 1. Under the `Contributor` role, you should see that your `dev-apply` Managed Identity has been granted access directly to the resource group.
@@ -197,33 +217,33 @@ The bootstrap implements a number of best practices for Terraform in Azure DevOp
 #### State storage account
 
 1. Navigate to your Subscription and select `Resource groups`.
-1. Click the resource group with `state` (e.g. `rg-demg-state-mgt-uksouth-001`).
+1. Click the resource group with `state` (for example `rg-demo-state-iac-uksouth-001`).
 1. You should see a single storage account in there, click on it.
-1. Select `Containers`. You should see a `dev`, `test` and `prod` container.
+1. Select `Containers`. You should see a `dev`, `uat` and `prod` container.
 1. Select the `dev` container.
 1. Click `Access Control (IAM)` and select `Role assignments`.
-1. Scroll down to `Storage Blob Data Owner`. You should see your `dev-plan` and `dev-apply` Managed Identities have been assigned that role.
+1. Scroll down to `Storage Blob Data Contributor`. You should see your `dev-plan` and `dev-apply` Managed Identities have been assigned that role.
 
 #### GitHub Repository
 
 1. Open github.com (login if you need to).
 1. Navigate to your organization and select `Repositories`.
-1. You should see a newly created repository in there (e.g. `demg-mgt-main`). Click on it.
+1. You should see a newly created repository in there named `<resource_name_workload>-<resource_name_environment>-main` (for example `demo-iac-main`). Click on it.
 1. You should see some files under source control.
 
 #### GitHub Template Repository
 
 1. Navigate to your organization and select `Repositories`.
-1. You should see a newly created repository in there (e.g. `demg-mgt-gha-template`). Click on it.
+1. You should see a newly created repository in there named `<resource_name_workload>-<resource_name_environment>-gha-template` (for example `demo-iac-gha-template`). Click on it.
 1. You should see reusable GitHub Actions workflow files under source control.
 
 #### GitHub environments
 
 1. Navigate to your organization and select `Repositories`.
-1. You should see a newly created repository in there (e.g. `demg-mgt-main`). Click on it.
+1. You should see a newly created repository in there named `<resource_name_workload>-<resource_name_environment>-main` (for example `demo-iac-main`). Click on it.
 1. You should see some files under source control.
 1. Navigate to `Settings`, then select `Environments`.
-1. You should see 6 environments called `dev-plan`, `dev-apply`, `test-plan`, `test-apply`, `prod-plan`, and `prod-apply`.
+1. You should see 6 environments called `dev-plan`, `dev-apply`, `uat-plan`, `uat-apply`, `prod-plan`, and `prod-apply`.
 1. Click on the `dev-plan` environment.
 1. You should see that the environment has 7 Environment variables. These secrets are all used in the Action for deploying Terraform.
 1. Click on the `prod-apply` environment and take a look at the approval settings.

@@ -36,3 +36,8 @@ terraform.rc
 .terraform.lock.hcl
 terraform.tfvars
 tfplan
+tfplan.*
+*.tfplan
+
+# Ignore VS Code settings
+.vscode/

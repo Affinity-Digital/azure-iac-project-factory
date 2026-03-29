@@ -34,8 +34,8 @@ variable "resource_name_workload" {
     error_message = "The name segment for the workload must only contain lowercase letters and numbers"
   }
   validation {
-    condition     = length(var.resource_name_workload) <= 4
-    error_message = "The name segment for the workload must be 4 characters or less"
+    condition     = length(var.resource_name_workload) <= 10
+    error_message = "The name segment for the workload must be 10 characters or less"
   }
 }
 
@@ -101,16 +101,16 @@ variable "environments" {
       display_order = 1
       display_name  = "Development"
     }
-    test = {
+    uat = {
       display_order         = 2
-      display_name          = "Test"
+      display_name          = "UAT"
       dependent_environment = "dev"
     }
     prod = {
       display_order         = 3
       display_name          = "Production"
       has_approval          = true
-      dependent_environment = "test"
+      dependent_environment = "uat"
     }
   }
 }
@@ -122,6 +122,23 @@ variable "personal_access_token" {
 
 variable "organization_name" {
   type = string
+}
+
+variable "azurerm_resource_provider_registrations" {
+  type        = string
+  default     = null
+  description = "Optional AzureRM resource provider auto-registration mode. Leave unset to use the AzureRM provider default."
+
+  validation {
+    condition = var.azurerm_resource_provider_registrations == null || contains([
+      "core",
+      "extended",
+      "all",
+      "legacy",
+      "none"
+    ], var.azurerm_resource_provider_registrations)
+    error_message = "azurerm_resource_provider_registrations must be one of core, extended, all, legacy, or none."
+  }
 }
 
 variable "use_self_hosted_agents" {
@@ -159,8 +176,9 @@ variable "subnets_and_sizes" {
 }
 
 variable "approvers" {
-  type    = map(string)
-  default = {}
+  type        = map(string)
+  default     = {}
+  description = "Map of approver identifiers to GitHub usernames for production apply approvals."
 }
 
 variable "example_module_path" {

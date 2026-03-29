@@ -29,8 +29,8 @@ variable "resource_name_workload" {
     error_message = "The name segment for the workload must only contain lowercase letters and numbers"
   }
   validation {
-    condition     = length(var.resource_name_workload) <= 4
-    error_message = "The name segment for the workload must be 4 characters or less"
+    condition     = length(var.resource_name_workload) <= 10
+    error_message = "The name segment for the workload must be 10 characters or less"
   }
 }
 

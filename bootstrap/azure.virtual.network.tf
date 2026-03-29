@@ -20,6 +20,13 @@ locals {
   ] : [] }
 }
 
+resource "azurerm_network_security_group" "agents" {
+  count               = var.use_self_hosted_agents ? 1 : 0
+  name                = local.resource_names.network_security_group_name
+  location            = var.location
+  resource_group_name = module.resource_group["agents"].name
+}
+
 module "virtual_network" {
   source              = "Azure/avm-res-network-virtualnetwork/azurerm"
   version             = "0.8.1"
@@ -29,8 +36,9 @@ module "virtual_network" {
   resource_group_name = module.resource_group["agents"].name
   address_space       = [var.address_space]
   subnets = { for subnet_key, subnet_address_space in local.subnets : subnet_key => {
-    name             = subnet_key
-    address_prefixes = [subnet_address_space]
-    delegation       = local.subnet_delegations[subnet_key]
+    name                   = subnet_key
+    address_prefixes       = [subnet_address_space]
+    delegation             = local.subnet_delegations[subnet_key]
+    network_security_group = { id = azurerm_network_security_group.agents[0].id }
   } }
 }

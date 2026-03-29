@@ -1,6 +1,6 @@
 locals {
-  primary_approver     = length(var.approvers) > 0 ? var.approvers[keys(var.approvers)[0]] : ""
-  default_commit_email = coalesce(local.primary_approver, "demouser@example.com")
+  default_commit_author = "Terraform Bootstrap"
+  default_commit_email  = "terraform@example.com"
 
   self_hosted_runner_name = local.use_runner_group ? "group: ${local.resource_names.runner_group_name}" : "self-hosted"
 
@@ -55,7 +55,7 @@ resource "github_repository_file" "this" {
   repository          = github_repository.this.name
   file                = each.key
   content             = each.value.content
-  commit_author       = local.default_commit_email
+  commit_author       = local.default_commit_author
   commit_email        = local.default_commit_email
   commit_message      = "Add ${each.key} [skip ci]"
   overwrite_on_create = true
@@ -66,7 +66,7 @@ resource "github_repository_file" "template" {
   repository          = github_repository.template.name
   file                = each.key
   content             = each.value.content
-  commit_author       = local.default_commit_email
+  commit_author       = local.default_commit_author
   commit_email        = local.default_commit_email
   commit_message      = "Add ${each.key} [skip ci]"
   overwrite_on_create = true

@@ -17,6 +17,8 @@ provider "github" {
 }
 
 provider "azurerm" {
+  resource_provider_registrations = var.azurerm_resource_provider_registrations
+
   features {
     resource_group {
       prevent_deletion_if_contains_resources = false
