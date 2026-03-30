@@ -18,6 +18,7 @@ locals {
       }
     }
   ] : [] }
+
 }
 
 resource "azurerm_network_security_group" "agents" {
@@ -35,10 +36,12 @@ module "virtual_network" {
   location            = var.location
   resource_group_name = module.resource_group["agents"].name
   address_space       = [var.address_space]
+  dns_servers         = { dns_servers = ["168.63.129.16"] }
   subnets = { for subnet_key, subnet_address_space in local.subnets : subnet_key => {
     name                   = subnet_key
     address_prefixes       = [subnet_address_space]
     delegation             = local.subnet_delegations[subnet_key]
     network_security_group = { id = azurerm_network_security_group.agents[0].id }
+    service_endpoints      = subnet_key == "agents" ? ["Microsoft.Storage"] : null
   } }
 }

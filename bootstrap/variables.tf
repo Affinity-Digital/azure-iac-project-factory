@@ -183,7 +183,7 @@ variable "approvers" {
 
 variable "example_module_path" {
   type    = string
-  default = "../example-module"
+  default = "../example-repo"
 }
 
 variable "repository_postfix" {

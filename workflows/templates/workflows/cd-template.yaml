@@ -71,62 +71,69 @@ jobs:
           terraform_wrapper: false
           terraform_version: ${{ inputs.terraform_cli_versions }}
 
-      - name: Terraform Init
-        shell: pwsh
+      - name: Debug Network
+        shell: bash
         run: |
-          terraform `
-          -chdir="${{inputs.root_module_folder_relative_path}}" `
-          init `
-          -backend-config="storage_account_name=${{vars.BACKEND_AZURE_STORAGE_ACCOUNT_NAME}}" `
-          -backend-config="container_name=${{vars.BACKEND_AZURE_STORAGE_ACCOUNT_CONTAINER_NAME}}" `
-          -backend-config="key=terraform.tfstate"
+          echo "=== DNS resolution ==="
+          nslookup stonhs24iacuks001tjp.blob.core.windows.net || true
+          echo "=== TCP connectivity ==="
+          timeout 5 bash -c 'echo > /dev/tcp/stonhs24iacuks001tjp.blob.core.windows.net/443' && echo "TCP:443 open" || echo "TCP:443 failed"
+
+      - name: Terraform Init
+        shell: bash
+        run: |
+          terraform \
+            -chdir="${{ inputs.root_module_folder_relative_path }}" \
+            init \
+            -backend-config="storage_account_name=${{ vars.BACKEND_AZURE_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ vars.BACKEND_AZURE_STORAGE_ACCOUNT_CONTAINER_NAME }}" \
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="use_azuread_auth=true"
 
       - name: Terraform Plan for ${{ inputs.terraform_action == 'destroy' && 'Destroy' || 'Apply' }}
-        shell: pwsh
+        shell: bash
         run: |
-          $additionalVariables = ConvertFrom-Json '${{ vars.ADDITIONAL_ENVIRONMENT_VARIABLES }}'
-          foreach($var in $additionalVariables.PSObject.Properties) {
-            if($var.Name.StartsWith("TF_VAR_")) {
-              Write-Host "Setting: $($var.Name) = $($var.Value)"
-              [System.Environment]::SetEnvironmentVariable($var.Name, $var.Value)
-            }
-          }
+          additional_variables='${{ vars.ADDITIONAL_ENVIRONMENT_VARIABLES }}'
+          if [ -n "$additional_variables" ]; then
+            for key in $(echo "$additional_variables" | jq -r 'keys[]'); do
+              if [[ "$key" == TF_VAR_* ]]; then
+                value=$(echo "$additional_variables" | jq -r --arg k "$key" '.[$k]')
+                echo "Setting: $key=$value"
+                export "$key=$value"
+              fi
+            done
+          fi
 
-          $varFilePath = "${{ vars.VAR_FILE_PATH }}"
-          $action = "${{ inputs.terraform_action }}"
+          ARGS=("-chdir=${{ inputs.root_module_folder_relative_path }}" "plan" "-out=tfplan" "-input=false")
 
-          # Run Terraform Plan
-          $command = "terraform"
-          $arguments = @()
-          $arguments += "-chdir=${{ inputs.root_module_folder_relative_path }}"
-          $arguments += "plan"
+          var_file_path="${{ vars.VAR_FILE_PATH }}"
+          if [ -n "$var_file_path" ]; then
+            ARGS+=("-var-file=$var_file_path")
+          fi
 
-          if($varFilePath -ne "") {
-            $arguments += "-var-file=$varFilePath"
-          }
+          if [ "${{ inputs.terraform_action }}" = "destroy" ]; then
+            ARGS+=("-destroy")
+          fi
 
-          $arguments += "-out=tfplan"
-          $arguments += "-input=false"
-
-          if ($action -eq 'destroy') {
-            $arguments += "-destroy"
-          }
-
-          Write-Host "Running: $command $arguments"
-          & $command $arguments
+          echo "Running: terraform ${ARGS[*]}"
+          terraform "${ARGS[@]}"
 
       - name: Create Module Artifact
-        shell: pwsh
+        shell: bash
         run: |
-          $stagingDirectory = "staging"
-          $rootModuleFolder = "${{inputs.root_module_folder_relative_path}}"
-          New-Item -Path . -Name $stagingDirectory -ItemType "directory"
-          Copy-Item -Path "./*" -Exclude @(".git", ".terraform", ".github",  $stagingDirectory) -Recurse -Destination "./$stagingDirectory"
+          staging_dir="staging"
+          mkdir -p "$staging_dir"
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.terraform' \
+            --exclude='.github' \
+            --exclude="$staging_dir" \
+            ./ "./$staging_dir/"
 
-          $rootModuleFolderTerraformFolder = Join-Path -Path "./$stagingDirectory" -ChildPath $rootModuleFolder -AdditionalChildPath ".terraform"
-          if(Test-Path -Path $rootModuleFolderTerraformFolder) {
-            Remove-Item -Path $rootModuleFolderTerraformFolder -Recurse -Force
-          }
+          tf_dir="./$staging_dir/${{ inputs.root_module_folder_relative_path }}/.terraform"
+          if [ -d "$tf_dir" ]; then
+            rm -rf "$tf_dir"
+          fi
 
       - name: Publish Module Artifact
         uses: actions/upload-artifact@v4
@@ -135,12 +142,12 @@ jobs:
           path: ./staging/
 
       - name: Show the Plan for Review
-        shell: pwsh
+        shell: bash
         run: |
-          terraform `
-          -chdir="${{inputs.root_module_folder_relative_path}}" `
-          show `
-          tfplan
+          terraform \
+            -chdir="${{ inputs.root_module_folder_relative_path }}" \
+            show \
+            tfplan
 
   apply:
     name: Apply with Terraform
@@ -173,21 +180,22 @@ jobs:
           terraform_version: ${{ inputs.terraform_cli_versions }}
 
       - name: Terraform Init
-        shell: pwsh
+        shell: bash
         run: |
-          terraform `
-          -chdir="${{inputs.root_module_folder_relative_path}}" `
-          init `
-          -backend-config="storage_account_name=${{vars.BACKEND_AZURE_STORAGE_ACCOUNT_NAME}}" `
-          -backend-config="container_name=${{vars.BACKEND_AZURE_STORAGE_ACCOUNT_CONTAINER_NAME}}" `
-          -backend-config="key=terraform.tfstate"
+          terraform \
+            -chdir="${{ inputs.root_module_folder_relative_path }}" \
+            init \
+            -backend-config="storage_account_name=${{ vars.BACKEND_AZURE_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ vars.BACKEND_AZURE_STORAGE_ACCOUNT_CONTAINER_NAME }}" \
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="use_azuread_auth=true"
 
       - name: Terraform ${{ inputs.terraform_action == 'destroy' && 'Destroy' || 'Apply' }}
-        shell: pwsh
+        shell: bash
         run: |
-          terraform `
-          -chdir="${{inputs.root_module_folder_relative_path}}" `
-          apply `
-          -input=false `
-          -auto-approve `
-          tfplan
+          terraform \
+            -chdir="${{ inputs.root_module_folder_relative_path }}" \
+            apply \
+            -input=false \
+            -auto-approve \
+            tfplan

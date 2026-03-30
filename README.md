@@ -21,7 +21,7 @@ This is a two part sample. The first part demonstrates how to configure Azure an
 | File/folder | Description |
 |-------------|-------------|
 | `bootstrap` | The Terraform to configure Azure and GitHub ready for Workload identity federation (OIDC) or Managed Identity authentication. |
-| `example-module` | Some Terraform with Azure Resources for the demo to deploy. |
+| `example-repo` | Some Terraform with Azure Resources that the factory deploys to the new repo. |
 | `workflows` | The templated GitHub Actions for the demo. |
 | `.gitignore` | Define what to ignore at commit time. |
 | `CHANGELOG.md` | List of changes to the sample. |

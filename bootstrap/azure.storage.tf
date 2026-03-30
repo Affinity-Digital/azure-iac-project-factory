@@ -23,8 +23,10 @@ module "storage_account" {
   resource_group_name           = module.resource_group["state"].name
   account_tier                  = "Standard"
   account_replication_type      = "ZRS"
-  public_network_access_enabled = !var.use_self_hosted_agents
-  network_rules                 = var.use_self_hosted_agents ? {} : null
+  public_network_access_enabled = true
+  network_rules = {
+    default_action = "Allow"
+  }
 
   containers = { for env_key, env_value in local.environments : env_key => {
     name          = env_key
@@ -42,12 +44,6 @@ module "storage_account" {
     }
   }
 
-  private_endpoints_manage_dns_zone_group = true
-  private_endpoints = var.use_self_hosted_agents ? { blob = {
-    name                          = local.resource_names.storage_account_private_endpoint_name
-    subnet_resource_id            = module.virtual_network[0].subnets["private_endpoints"].resource_id
-    subresource_name              = "blob"
-    private_dns_zone_resource_ids = [module.private_dns_zone_storage_account[0].resource_id]
-    }
-  } : {}
+  private_endpoints_manage_dns_zone_group = false
+  private_endpoints                       = {}
 }

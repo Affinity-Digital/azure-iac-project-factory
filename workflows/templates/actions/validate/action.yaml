@@ -22,24 +22,24 @@ runs:
         terraform_version: ${{ inputs.terraform_cli_versions }}
 
     - name: Terraform Format Check
-      shell: pwsh
+      shell: bash
       run: |
-        terraform `
-        -chdir="${{inputs.root_module_folder_relative_path}}" `
-        fmt `
-        -check
+        terraform \
+          -chdir="${{ inputs.root_module_folder_relative_path }}" \
+          fmt \
+          -check
 
     - name: Terraform Init
-      shell: pwsh
+      shell: bash
       run: |
-        terraform `
-        -chdir="${{inputs.root_module_folder_relative_path}}" `
-        init `
-        -backend=false
+        terraform \
+          -chdir="${{ inputs.root_module_folder_relative_path }}" \
+          init \
+          -backend=false
 
     - name: Terraform Validate
-      shell: pwsh
+      shell: bash
       run: |
-        terraform `
-        -chdir="${{inputs.root_module_folder_relative_path}}" `
-        validate
+        terraform \
+          -chdir="${{ inputs.root_module_folder_relative_path }}" \
+          validate
