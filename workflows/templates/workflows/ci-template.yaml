@@ -114,7 +114,7 @@ jobs:
 
           echo "Plan Summary:"
           jq -r '
-            [.resource_changes[].change.actions]
+            [(.resource_changes // [])[].change.actions]
             | map(. | join("-"))
             | group_by(.)
             | map({action: .[0], count: length})
